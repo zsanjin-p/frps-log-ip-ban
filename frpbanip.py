@@ -8,6 +8,7 @@ from datetime import time as dt_time  # 重命名以避免冲突
 from logging.handlers import TimedRotatingFileHandler
 from dotenv import load_dotenv
 from time import sleep  # 直接导入sleep
+from collections import defaultdict  # 用于计数IP出现次数
 
 # 加载 .env 文件中的环境变量
 load_dotenv()
@@ -25,9 +26,9 @@ logger.setLevel(logging.INFO)
 
 # 使用 TimedRotatingFileHandler 进行日志管理
 log_file_handler = TimedRotatingFileHandler(
-    log_file_name, 
-    when='midnight', 
-    interval=1, 
+    log_file_name,
+    when='midnight',
+    interval=1,
     backupCount=7,  # 保留7天的日志文件
     encoding='utf-8',
     atTime=dt_time(0, 0, 0)  # 确保午夜时切换日志文件
@@ -48,6 +49,8 @@ WHITELIST = os.getenv('WHITELIST', '').split(',')
 BAN_FILE_PATH = os.getenv('BAN_FILE_PATH', 'C:\\Users\\Administrator\\Desktop\\banip\\frplog\\ban.txt')
 EXECUTE_PATH = os.getenv('EXECUTE_PATH', 'C:\\Users\\Administrator\\Desktop\\banip\\frplog\\banip.ps1')
 CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL', '5'))  # minutes
+THRESHOLD_COUNT = int(os.getenv('THRESHOLD_COUNT', '5'))  # 触发禁用IP的次数阈值
+
 
 def check_ip_whitelisted(ip):
     try:
@@ -58,6 +61,7 @@ def check_ip_whitelisted(ip):
     except ValueError as e:
         logger.error(f"Invalid IP address or network: {e}")
     return False
+
 
 def execute_script(ip):
     script_extension = os.path.splitext(EXECUTE_PATH)[-1].lower()
@@ -87,12 +91,23 @@ def update_ban_list(ip):
             lines = file.readlines()
 
         for line in lines:
-            file_ip, file_date = line.strip().split()
+            # Skip empty lines and malformed entries
+            line = line.strip()
+            if not line:
+                logger.debug("Skipped empty line.")
+                continue
+
+            try:
+                file_ip, file_date = line.split()
+            except ValueError:
+                logger.warning(f"Malformed line skipped: {line}")
+                continue
+
             if file_ip == ip:
                 updated_content.append(f"{ip}   {today_date}\n")  # Update the date for existing IP
                 found = True
             else:
-                updated_content.append(line)  # Copy other entries unchanged
+                updated_content.append(f"{file_ip}   {file_date}\n")  # Ensure proper format with newline
 
     if not found:
         updated_content.append(f"{ip}   {today_date}\n")  # Add new IP with the current date
@@ -114,7 +129,9 @@ def analyze_log():
     logger.info(f"Analyzing logs after {time_threshold}")
 
     pattern = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[.*?\] \[.*?\] \[.*?\] \[(.*?)\] .*? \[(.*?):')
-    
+
+    ip_counter = defaultdict(int)  # 记录IP出现次数
+
     try:
         with open(LOG_FILE_PATH, 'r') as file:
             lines = file.readlines()
@@ -127,11 +144,18 @@ def analyze_log():
                         connection_name = match.group(2)
                         ip = match.group(3)
                         if connection_name in TARGET_NAMES and not check_ip_whitelisted(ip):
-                            update_ban_list(ip)
+                            ip_counter[ip] += 1  # 计数IP出现次数
+
+        # 检查IP出现次数是否达到阈值
+        for ip, count in ip_counter.items():
+            if count >= THRESHOLD_COUNT:
+                update_ban_list(ip)
+
     except FileNotFoundError as e:
         logger.error(f"Log file not found: {e}")
     except Exception as e:
         logger.error(f"Error reading log file: {e}")
+
 
 def main_loop():
     while True:
@@ -139,6 +163,7 @@ def main_loop():
         next_check = datetime.now() + timedelta(minutes=CHECK_INTERVAL)
         logger.info(f"Next check scheduled at {next_check.strftime('%Y-%m-%d %H:%M:%S')}")
         sleep(CHECK_INTERVAL * 60)
+
 
 if __name__ == "__main__":
     try:
