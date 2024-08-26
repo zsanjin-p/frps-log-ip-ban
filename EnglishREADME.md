@@ -9,6 +9,7 @@ This tool is designed to enhance security for services exposed through FRP (Fast
 - **Whitelist Support:** Allows specifying IP addresses that should never be banned.
 - **Scheduled Unban:** Automatically unbans IPs after a certain period.
 - **Integration with Firewall:** Works with both Windows Firewall and UFW (on Linux).
+- IPv4 only
 
 ## Installation
 
@@ -42,19 +43,17 @@ This tool is designed to enhance security for services exposed through FRP (Fast
 
 2. Adjust the firewall script (`banip.ps1` for Windows, `banip.py` for Linux) to point to the correct location of your blacklist file and set the ban duration.
 
-## Usage
-
-Run the main script to start monitoring the logs and banning IPs:
-
-```
-python frpbanip.py
-```
-
-## Automation
+## Usage & Automation
 
 ### Linux
 
-Create a systemd service to run the script at startup:
+1. Modify the `banip.py` script for systems using the BaoTa panel (UFW) to manage the firewall, setting the blacklist file path and the ban duration (default is 30 days from the current date).
+   - **Blacklist file location**: This must be changed, approximately around line 9. The default path in the `banip.py` script is `/root/firewall/banipufw/banip.txt`.
+   - **Ban duration**: Change approximately line 6 from `threshold_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%d')` to `threshold_date = (datetime.datetime.now() - datetime.timedelta(days=99999)).strftime('%Y-%m-%d')`.
+
+2. Run the command `python frpbanip.py`.
+
+3. Create a Systemd service file at `/etc/systemd/system/frpbanip.service`, making sure to modify the Python path and working directory path accordingly.
 
 ```
 sudo nano /etc/systemd/system/frpbanip.service
@@ -86,7 +85,18 @@ sudo systemctl start frpbanip
 
 ### Windows
 
-Create a batch file to run the script at startup and use Task Scheduler to add the batch file as a startup task.
+1. Modify the `banip.ps1` script to set the blacklist file path and the ban duration (default is 30 days from the current date).
+   - **Blacklist file location**: This must be changed, approximately around line 10. The default path in the `banip.ps1` script is `C:\\Users\\Administrator\\Desktop\\banip\\frplog\\banip.txt`.
+   - **Ban duration**: Change approximately line 6 from `$thresholdDate = (Get-Date).AddDays(-30)` to `$thresholdDate = (Get-Date).AddDays(-99999)` or `$thresholdDate = (Get-Date).AddDays(99999)`.  
+
+2. Simply click to run `frpbanip.py`.
+
+3. Create a batch file `.bat` and set it to run at startup using the Task Scheduler:
+   ```bat
+   @echo off
+   cd C:\Users\Administrator\Desktop\banip\frplog
+   C:\Path\To\Python\python.exe frpbanip.py
+   ```
 
 ## Contributing
 
