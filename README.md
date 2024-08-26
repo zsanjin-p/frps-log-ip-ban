@@ -9,7 +9,7 @@
 - 根据配置的时间阈值和尝试次数自动封禁异常 IP。
 - 支持设置白名单 IP。
 - 封禁的 IP 地址会记录并在设定时间后自动解封。
-- 支持 Windows 和 Linux 系统。
+- 支持 Windows 和 Linux 系统（宝塔面板所用的ufw管理防火墙）。
 - 仅支持ipv4
 
 ## 快速开始
@@ -32,14 +32,19 @@
 3. 根据您的操作系统选择对应的封禁 IP 脚本：
 
    - Windows: `banip.ps1`
-   - Linux (使用 UFW): `banip.py`
+   - Linux (宝塔面板UFW): `banip.py`
 
 ## 配置和使用
 
 ### Windows
 
-1. 修改 `banip.ps1` 脚本，设置黑名单文件路径和封禁天数。
-2. 创建批处理文件 `.bat` 以设置开机启动：
+1. 修改 `banip.ps1` 脚本，设置黑名单文件路径和封禁天数（默认为当天往前数30天）。
+黑名单文件所在的位置：必改，大概在第10行左右，banip.ps1脚本默认为C:\\Users\\Administrator\\Desktop\\banip\\frplog\\banip.txt
+封禁天数：把banip.ps1大概第6行$thresholdDate = (Get-Date).AddDays(-30)改为$thresholdDate = (Get-Date).AddDays(-99999)或者$thresholdDate = (Get-Date).AddDays(-30)改为$thresholdDate = (Get-Date).AddDays(99999)
+
+2. 点击运行frpbanip.py即可。
+
+3. 创建批处理文件 `.bat` 并通过计划任务程序可设置开机启动：
    ```bat
    @echo off
    cd C:\Users\Administrator\Desktop\banip\frplog
@@ -48,8 +53,13 @@
 
 ### Linux
 
-1. 修改 `banip.py` 脚本，适用于使用 UFW 管理防火墙的系统。
-2. 创建 Systemd 服务文件 `/etc/systemd/system/frpbanip.service`，注意修改 Python 路径和工作目录路径。
+1. 修改 `banip.py` 脚本，适用于使用宝塔面板（UFW）管理防火墙的系统，设置黑名单文件路径和封禁天数（默认为当天往前数30天）。
+黑名单文件所在的位置：必改，大概在第9行左右，banip.py脚本默认为/root/firewall/banipufw/banip.txt
+封禁天数：把banip.py大概第6行threshold_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%d')改为threshold_date = (datetime.datetime.now() - datetime.timedelta(days=99999)).strftime('%Y-%m-%d')
+
+2. 输入命令 `pyhton frpbanip.py` 即可运行。
+
+3. 创建 Systemd 服务文件 `/etc/systemd/system/frpbanip.service`，注意修改 Python 路径和工作目录路径。
 
    重新加载 Systemd 配置并启动服务：
    ```bash
