@@ -59,7 +59,23 @@
 
 2. 输入命令 `pyhton frpbanip.py` 即可运行。
 
-3. 创建 Systemd 服务文件 `/etc/systemd/system/frpbanip.service`，注意修改 Python 路径和工作目录路径。
+3. 创建 Systemd 服务文件 `/etc/systemd/system/frpbanip.service`，将下面内容添加进去，注意修改 Python 路径和工作目录路径。
+
+```
+[Unit]
+Description=FRP Log Ban IP Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /path/to/frpbanip.py
+WorkingDirectory=/path/to
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+```
+
 
    重新加载 Systemd 配置并启动服务：
    ```bash
